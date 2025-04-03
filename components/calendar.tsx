@@ -35,32 +35,19 @@ const MONTHS = [
 ]
 
 export function Calendar() {
-  const [isClient, setIsClient] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [storeData, setStoreData] = useState({
-    bookings: [],
-    selectedRoom: "",
-    rooms: [],
-    leaves: [],
-  })
 
-  // Utiliser useEffect pour éviter les erreurs d'hydratation
+  // Utiliser le store seulement après le montage du composant
+  const { bookings, selectedRoom, rooms, leaves } = useBookingStore((state) => ({
+    bookings: mounted ? state.bookings : [],
+    selectedRoom: mounted ? state.selectedRoom : "",
+    rooms: mounted ? state.rooms : [],
+    leaves: mounted ? state.leaves : [],
+  }))
+
   useEffect(() => {
-    setIsClient(true)
-    const { bookings, selectedRoom, rooms, leaves } = useBookingStore.getState()
-    setStoreData({ bookings, selectedRoom, rooms, leaves })
-
-    // S'abonner aux changements du store
-    const unsubscribe = useBookingStore.subscribe((state) => {
-      setStoreData({
-        bookings: state.bookings,
-        selectedRoom: state.selectedRoom,
-        rooms: state.rooms,
-        leaves: state.leaves,
-      })
-    })
-
-    return () => unsubscribe()
+    setMounted(true)
   }, [])
 
   const currentYear = currentDate.getFullYear()
@@ -78,11 +65,11 @@ export function Calendar() {
   }
 
   // Filter bookings for the selected room and current month
-  const filteredBookings = isClient
-    ? storeData.bookings.filter((booking) => {
+  const filteredBookings = mounted
+    ? bookings.filter((booking) => {
         const bookingDate = new Date(booking.date)
         return (
-          booking.roomId === storeData.selectedRoom &&
+          booking.roomId === selectedRoom &&
           bookingDate.getMonth() === currentMonth &&
           bookingDate.getFullYear() === currentYear
         )
@@ -90,13 +77,13 @@ export function Calendar() {
     : []
 
   // Get leaves for the selected room if it's an office
-  const selectedRoomObj = isClient ? storeData.rooms.find((room) => room.id === storeData.selectedRoom) : null
+  const selectedRoomObj = mounted ? rooms.find((room) => room.id === selectedRoom) : null
   const isOffice = selectedRoomObj?.type === "office"
 
   // Filter leaves for the current month and selected room
   const filteredLeaves =
-    isClient && isOffice
-      ? storeData.leaves.filter((leave) => {
+    mounted && isOffice
+      ? leaves.filter((leave) => {
           const leaveStartDate = new Date(leave.startDate)
           const leaveEndDate = new Date(leave.endDate)
 
@@ -105,7 +92,7 @@ export function Calendar() {
           const monthEnd = new Date(currentYear, currentMonth + 1, 0)
 
           return (
-            leave.referentId === storeData.selectedRoom &&
+            leave.referentId === selectedRoom &&
             ((leaveStartDate <= monthEnd && leaveEndDate >= monthStart) ||
               (leaveStartDate.getMonth() === currentMonth && leaveStartDate.getFullYear() === currentYear) ||
               (leaveEndDate.getMonth() === currentMonth && leaveEndDate.getFullYear() === currentYear))
@@ -128,14 +115,14 @@ export function Calendar() {
 
   // Get current room name
   const getRoomName = () => {
-    if (!isClient || !storeData.selectedRoom) return ""
-    const room = storeData.rooms.find((r) => r.id === storeData.selectedRoom)
+    if (!mounted || !selectedRoom) return ""
+    const room = rooms.find((r) => r.id === selectedRoom)
     return room ? room.name : ""
   }
 
   // Check if a day is within a leave period
   const isDayInLeave = (day: number) => {
-    if (!isClient || !isOffice || filteredLeaves.length === 0) return false
+    if (!mounted || !isOffice || filteredLeaves.length === 0) return false
 
     const checkDate = new Date(currentYear, currentMonth, day)
 
@@ -148,7 +135,7 @@ export function Calendar() {
 
   // Obtenir les informations de congé pour un jour spécifique
   const getLeaveInfoForDay = (day: number) => {
-    if (!isClient || !isOffice || filteredLeaves.length === 0) return null
+    if (!mounted || !isOffice || filteredLeaves.length === 0) return null
 
     const checkDate = new Date(currentYear, currentMonth, day)
 
@@ -161,7 +148,7 @@ export function Calendar() {
     return leave
   }
 
-  if (!isClient) {
+  if (!mounted) {
     return (
       <Card className="w-full">
         <CardHeader>

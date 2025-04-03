@@ -35,31 +35,19 @@ const MONTHS = [
 ]
 
 export function GlobalCalendar() {
-  const [isClient, setIsClient] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [storeData, setStoreData] = useState({
-    bookings: [],
-    rooms: [],
-    leaves: [],
-    collaborators: [],
-  })
+
+  // Utiliser le store seulement après le montage du composant
+  const { bookings, rooms, leaves, collaborators } = useBookingStore((state) => ({
+    bookings: mounted ? state.bookings : [],
+    rooms: mounted ? state.rooms : [],
+    leaves: mounted ? state.leaves : [],
+    collaborators: mounted ? state.collaborators : [],
+  }))
 
   useEffect(() => {
-    setIsClient(true)
-    const { bookings, rooms, leaves, collaborators } = useBookingStore.getState()
-    setStoreData({ bookings, rooms, leaves, collaborators })
-
-    // S'abonner aux changements du store
-    const unsubscribe = useBookingStore.subscribe((state) => {
-      setStoreData({
-        bookings: state.bookings,
-        rooms: state.rooms,
-        leaves: state.leaves,
-        collaborators: state.collaborators,
-      })
-    })
-
-    return () => unsubscribe()
+    setMounted(true)
   }, [])
 
   const currentYear = currentDate.getFullYear()
@@ -77,16 +65,16 @@ export function GlobalCalendar() {
   }
 
   // Filter bookings for the current month
-  const filteredBookings = isClient
-    ? storeData.bookings.filter((booking) => {
+  const filteredBookings = mounted
+    ? bookings.filter((booking) => {
         const bookingDate = new Date(booking.date)
         return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear
       })
     : []
 
   // Filter leaves for the current month
-  const filteredLeaves = isClient
-    ? storeData.leaves.filter((leave) => {
+  const filteredLeaves = mounted
+    ? leaves.filter((leave) => {
         const leaveStartDate = new Date(leave.startDate)
         const leaveEndDate = new Date(leave.endDate)
 
@@ -117,17 +105,17 @@ export function GlobalCalendar() {
 
   // Get room name by id
   const getRoomName = (roomId: string) => {
-    if (!isClient) return roomId
-    const room = storeData.rooms.find((r) => r.id === roomId)
+    if (!mounted) return roomId
+    const room = rooms.find((r) => r.id === roomId)
     return room ? room.name : roomId
   }
 
   // Get collaborator name by room
   const getCollaboratorName = (roomId: string) => {
-    if (!isClient) return ""
-    const room = storeData.rooms.find((r) => r.id === roomId)
+    if (!mounted) return ""
+    const room = rooms.find((r) => r.id === roomId)
     if (room?.collaboratorId) {
-      const collaborator = storeData.collaborators.find((c) => c.id === room.collaboratorId)
+      const collaborator = collaborators.find((c) => c.id === room.collaboratorId)
       return collaborator ? collaborator.name : ""
     }
     return ""
@@ -135,8 +123,8 @@ export function GlobalCalendar() {
 
   // Get a color for each room (for visual distinction)
   const getRoomColor = (roomId: string) => {
-    if (!isClient) return "bg-blue-100 border-blue-500 text-blue-800"
-    const room = storeData.rooms.find((r) => r.id === roomId)
+    if (!mounted) return "bg-blue-100 border-blue-500 text-blue-800"
+    const room = rooms.find((r) => r.id === roomId)
     if (room?.type === "training") {
       return "bg-blue-100 border-blue-500 text-blue-800"
     } else {
@@ -146,7 +134,7 @@ export function GlobalCalendar() {
 
   // Check if a day has leaves for any room
   const getRoomLeavesForDay = (day: number) => {
-    if (!isClient) return []
+    if (!mounted) return []
     const checkDate = new Date(currentYear, currentMonth, day)
 
     return filteredLeaves.filter((leave) => {
@@ -156,7 +144,7 @@ export function GlobalCalendar() {
     })
   }
 
-  if (!isClient) {
+  if (!mounted) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -249,7 +237,7 @@ export function GlobalCalendar() {
                 {dayBookings.map((booking, idx) => {
                   const roomName = getRoomName(booking.roomId)
                   const collaboratorName = getCollaboratorName(booking.roomId)
-                  const room = storeData.rooms.find((r) => r.id === booking.roomId)
+                  const room = rooms.find((r) => r.id === booking.roomId)
                   const isTraining = room?.type === "training"
 
                   return (

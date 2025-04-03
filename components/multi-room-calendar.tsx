@@ -35,31 +35,19 @@ const MONTHS = [
 ]
 
 export function MultiRoomCalendar() {
-  const [isClient, setIsClient] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [storeData, setStoreData] = useState({
-    bookings: [],
-    selectedRooms: [],
-    rooms: [],
-    leaves: [],
-  })
+
+  // Utiliser le store seulement après le montage du composant
+  const { bookings, selectedRooms, rooms, leaves } = useBookingStore((state) => ({
+    bookings: mounted ? state.bookings : [],
+    selectedRooms: mounted ? state.selectedRooms : [],
+    rooms: mounted ? state.rooms : [],
+    leaves: mounted ? state.leaves : [],
+  }))
 
   useEffect(() => {
-    setIsClient(true)
-    const { bookings, selectedRooms, rooms, leaves } = useBookingStore.getState()
-    setStoreData({ bookings, selectedRooms, rooms, leaves })
-
-    // S'abonner aux changements du store
-    const unsubscribe = useBookingStore.subscribe((state) => {
-      setStoreData({
-        bookings: state.bookings,
-        selectedRooms: state.selectedRooms,
-        rooms: state.rooms,
-        leaves: state.leaves,
-      })
-    })
-
-    return () => unsubscribe()
+    setMounted(true)
   }, [])
 
   const currentYear = currentDate.getFullYear()
@@ -77,11 +65,11 @@ export function MultiRoomCalendar() {
   }
 
   // Filter bookings for the selected rooms and current month
-  const filteredBookings = isClient
-    ? storeData.bookings.filter((booking) => {
+  const filteredBookings = mounted
+    ? bookings.filter((booking) => {
         const bookingDate = new Date(booking.date)
         return (
-          storeData.selectedRooms.includes(booking.roomId) &&
+          selectedRooms.includes(booking.roomId) &&
           bookingDate.getMonth() === currentMonth &&
           bookingDate.getFullYear() === currentYear
         )
@@ -89,8 +77,8 @@ export function MultiRoomCalendar() {
     : []
 
   // Filter leaves for the current month and selected rooms
-  const filteredLeaves = isClient
-    ? storeData.leaves.filter((leave) => {
+  const filteredLeaves = mounted
+    ? leaves.filter((leave) => {
         const leaveStartDate = new Date(leave.startDate)
         const leaveEndDate = new Date(leave.endDate)
 
@@ -99,7 +87,7 @@ export function MultiRoomCalendar() {
         const monthEnd = new Date(currentYear, currentMonth + 1, 0)
 
         return (
-          storeData.selectedRooms.includes(leave.referentId) &&
+          selectedRooms.includes(leave.referentId) &&
           ((leaveStartDate <= monthEnd && leaveEndDate >= monthStart) ||
             (leaveStartDate.getMonth() === currentMonth && leaveStartDate.getFullYear() === currentYear) ||
             (leaveEndDate.getMonth() === currentMonth && leaveEndDate.getFullYear() === currentYear))
@@ -122,8 +110,8 @@ export function MultiRoomCalendar() {
 
   // Get room name by id
   const getRoomName = (roomId: string) => {
-    if (!isClient) return roomId
-    const room = storeData.rooms.find((r) => r.id === roomId)
+    if (!mounted) return roomId
+    const room = rooms.find((r) => r.id === roomId)
     return room ? room.name : roomId
   }
 
@@ -142,14 +130,14 @@ export function MultiRoomCalendar() {
     ]
 
     // Use the index of the room in the rooms array to determine color
-    if (!isClient) return colors[0]
-    const index = storeData.rooms.findIndex((r) => r.id === roomId)
+    if (!mounted) return colors[0]
+    const index = rooms.findIndex((r) => r.id === roomId)
     return colors[index % colors.length]
   }
 
   // Check if a day has leaves for any of the selected rooms
   const getRoomLeavesForDay = (day: number) => {
-    if (!isClient) return []
+    if (!mounted) return []
     const checkDate = new Date(currentYear, currentMonth, day)
 
     return filteredLeaves.filter((leave) => {
@@ -159,7 +147,7 @@ export function MultiRoomCalendar() {
     })
   }
 
-  if (!isClient) {
+  if (!mounted) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -178,7 +166,7 @@ export function MultiRoomCalendar() {
         <div className="flex flex-col">
           <CardTitle>Calendrier multi-espaces</CardTitle>
           <p className="text-sm text-muted-foreground print:text-black">
-            {`${storeData.selectedRooms.length} espace(s) sélectionné(s)`}
+            {`${selectedRooms.length} espace(s) sélectionné(s)`}
           </p>
         </div>
         <div className="flex items-center space-x-2">
